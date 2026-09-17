@@ -9,6 +9,7 @@ import {
 } from '@/lib/acoes/modelo-proposta'
 import {
   slidesDaSecao,
+  type ModalidadeDoModelo,
   type SecaoDoModeloDeProposta,
   type SlideDoModeloDeProposta,
 } from '@/lib/dominio/modelo-proposta'
@@ -18,6 +19,7 @@ type Props = {
   programaNome: string
   contemDigital: boolean
   temRedesSociais: boolean
+  aceitaRegional: boolean
   slides: SlideDoModeloDeProposta[]
 }
 
@@ -45,13 +47,13 @@ const SECOES: ConfiguracaoDaSecao[] = [
   {
     id: 'digital',
     titulo: 'Digital',
-    descricao: 'Só entra no PDF quando o executivo marcar “Incluir Digital” no calendário.',
+    descricao: 'Entra automaticamente em toda proposta nacional deste programa — não é mais uma escolha do executivo.',
     condicional: 'digital',
   },
   {
     id: 'redes_sociais',
     titulo: 'Redes Sociais',
-    descricao: 'Só entra no PDF quando o executivo marcar “Incluir Redes sociais” no calendário.',
+    descricao: 'Entra automaticamente em toda proposta nacional deste programa — não é mais uma escolha do executivo.',
     condicional: 'redes',
   },
   {
@@ -79,6 +81,7 @@ export function EditorDeModeloDeProposta({
   programaNome,
   contemDigital,
   temRedesSociais,
+  aceitaRegional,
   slides,
 }: Props) {
   const router = useRouter()
@@ -86,8 +89,7 @@ export function EditorDeModeloDeProposta({
   const [ocupado, setOcupado] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [secaoParaUpload, setSecaoParaUpload] = useState<ConfiguracaoDaSecao | null>(null)
-  const [testarDigital, setTestarDigital] = useState(false)
-  const [testarRedes, setTestarRedes] = useState(false)
+  const [modalidade, setModalidade] = useState<ModalidadeDoModelo>('nacional')
 
   function abrirSeletor(secao: ConfiguracaoDaSecao) {
     setErro(null)
@@ -108,7 +110,7 @@ export function EditorDeModeloDeProposta({
       const arquivo = arquivos[indice]
       const formulario = new FormData()
       formulario.append('arquivos', arquivo)
-      const resultado = await adicionarSlidesAoModelo(programaId, secao.id, formulario)
+      const resultado = await adicionarSlidesAoModelo(programaId, secao.id, modalidade, formulario)
 
       if (resultado.erro) {
         setOcupado(false)
@@ -148,7 +150,7 @@ export function EditorDeModeloDeProposta({
     else router.refresh()
   }
 
-  const urlTeste = `/configuracoes/programas/${programaId}/modelo/teste?digital=${testarDigital ? '1' : '0'}&redes=${testarRedes ? '1' : '0'}`
+  const urlTeste = `/configuracoes/programas/${programaId}/modelo/teste?modalidade=${modalidade}`
 
   return (
     <div className="flex flex-col gap-5">
@@ -164,10 +166,41 @@ export function EditorDeModeloDeProposta({
         }}
       />
 
+      {aceitaRegional && (
+        <div className="flex gap-1 self-start rounded-[11px] border border-[var(--borda)] bg-[var(--superficie)] p-1">
+          <button
+            type="button"
+            onClick={() => setModalidade('nacional')}
+            className="rounded-[8px] px-4 py-2 text-[12px] font-bold transition-colors"
+            style={
+              modalidade === 'nacional'
+                ? { background: 'var(--marca)', color: '#fff' }
+                : { color: 'var(--texto-3)' }
+            }
+          >
+            Nacional
+          </button>
+          <button
+            type="button"
+            onClick={() => setModalidade('regional')}
+            className="rounded-[8px] px-4 py-2 text-[12px] font-bold transition-colors"
+            style={
+              modalidade === 'regional'
+                ? { background: 'var(--marca)', color: '#fff' }
+                : { color: 'var(--texto-3)' }
+            }
+          >
+            Regional
+          </button>
+        </div>
+      )}
+
       <section className="rounded-[var(--raio-card)] border border-[var(--borda)] bg-[var(--superficie)] p-5">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div>
-            <p className="text-[10.5px] font-bold uppercase tracking-[.08em] text-[var(--roxo)]">Modelo de propostas</p>
+            <p className="text-[10.5px] font-bold uppercase tracking-[.08em] text-[var(--roxo)]">
+              Modelo de propostas {aceitaRegional && `— ${modalidade === 'nacional' ? 'Nacional' : 'Regional'}`}
+            </p>
             <h2 className="mt-1 text-[16px] font-bold text-[var(--texto)]">{programaNome}</h2>
             <p className="mt-1 max-w-[720px] text-[12.5px] leading-[1.55] text-[var(--texto-3)]">
               Monte o PDF pela ordem das seções abaixo. Conteúdo, Digital, Redes Sociais e Observações aceitam várias imagens de uma vez. A proposta final respeita esta mesma sequência.
@@ -178,20 +211,6 @@ export function EditorDeModeloDeProposta({
             <div>
               <p className="text-[11.5px] font-bold text-[var(--texto)]">Prévia do PDF</p>
               <p className="mt-0.5 text-[10.5px] leading-[1.4] text-[var(--texto-3)]">Não cria proposta, não envia e-mail e não entra no histórico.</p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <OpcaoDeTeste
-                rotulo="Digital"
-                marcado={testarDigital}
-                desabilitado={!contemDigital}
-                aoMudar={setTestarDigital}
-              />
-              <OpcaoDeTeste
-                rotulo="Redes sociais"
-                marcado={testarRedes}
-                desabilitado={!temRedesSociais}
-                aoMudar={setTestarRedes}
-              />
             </div>
             <a
               href={urlTeste}
@@ -216,8 +235,9 @@ export function EditorDeModeloDeProposta({
       </section>
 
       <div className="flex flex-col gap-4">
-        {SECOES.map((secao, indiceDaSecao) => {
-          const slidesDaVez = slidesDaSecao(slides, secao.id)
+        {/* Digital e Redes Sociais só existem no Nacional — o Regional não tem esses complementos. */}
+        {SECOES.filter((secao) => modalidade === 'nacional' || secao.condicional === undefined).map((secao, indiceDaSecao) => {
+          const slidesDaVez = slidesDaSecao(slides, secao.id, modalidade)
           const condicionalIndisponivel =
             (secao.condicional === 'digital' && !contemDigital) ||
             (secao.condicional === 'redes' && !temRedesSociais)
@@ -302,31 +322,6 @@ export function EditorDeModeloDeProposta({
         })}
       </div>
     </div>
-  )
-}
-
-function OpcaoDeTeste({
-  rotulo,
-  marcado,
-  desabilitado,
-  aoMudar,
-}: {
-  rotulo: string
-  marcado: boolean
-  desabilitado: boolean
-  aoMudar: (valor: boolean) => void
-}) {
-  return (
-    <label className={`flex items-center gap-1.5 text-[10.5px] font-semibold ${desabilitado ? 'opacity-40' : 'cursor-pointer'}`}>
-      <input
-        type="checkbox"
-        checked={marcado}
-        disabled={desabilitado}
-        onChange={(evento) => aoMudar(evento.target.checked)}
-        className="h-3.5 w-3.5 accent-[#7A2FF2]"
-      />
-      {rotulo}
-    </label>
   )
 }
 

@@ -224,7 +224,7 @@ export function PainelDeClientesRegionais({ clientesIniciais, totalInicial }: Pr
                 <div className="min-w-0">
                   <p className="truncate text-[13.5px] font-bold text-[var(--texto)]">{cliente.nome}</p>
                   <p className="text-[11.5px] text-[var(--texto-3)]">
-                    {cliente.cnpj ?? 'Sem CNPJ'} · {cliente.setor ?? 'Sem setor'} · {cliente.executivo ?? 'Sem executivo'}
+                    {cliente.cnpj ?? 'Sem CNPJ'} · {cliente.setor ?? 'Sem setor'} · {cliente.executivo_linear_360 ?? cliente.executivo_digital ?? 'Sem executivo'}
                   </p>
                 </div>
 
@@ -393,8 +393,8 @@ export function PainelDeClientesRegionais({ clientesIniciais, totalInicial }: Pr
                     {resultadoEmMassa.naoEncontrados.length} não encontrado{resultadoEmMassa.naoEncontrados.length === 1 ? '' : 's'} na carteira
                   </p>
                   <ul className="mt-1 max-h-[100px] overflow-y-auto font-mono text-[12px] text-[var(--texto-3)]">
-                    {resultadoEmMassa.naoEncontrados.map((cnpj) => (
-                      <li key={cnpj}>{cnpj}</li>
+                    {resultadoEmMassa.naoEncontrados.map((cnpj, indice) => (
+                      <li key={`${cnpj}-${indice}`}>{cnpj}</li>
                     ))}
                   </ul>
                 </div>

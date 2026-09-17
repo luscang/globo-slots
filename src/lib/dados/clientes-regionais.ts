@@ -14,7 +14,8 @@ export type ClienteElegivel = {
   nome: string
   cnpj: string | null
   setor: string | null
-  executivo: string | null
+  executivo_linear_360: string | null
+  executivo_digital: string | null
 }
 
 /** Tamanho de página da listagem — são 779 elegíveis, pagina para não trazer tudo de uma vez. */
@@ -61,7 +62,7 @@ export async function listarClientesElegiveis(
 
   let consulta = supabase
     .from('clientes')
-    .select('id, nome, cnpj, setor, executivo', { count: 'exact' })
+    .select('id, nome, cnpj, setor, executivo_linear_360, executivo_digital', { count: 'exact' })
     .eq('apto_regional', true)
 
   if (termoLimpo !== '') {

@@ -3,6 +3,7 @@ import {
   listarPermissoesDeSecoes,
   listarUsuariosComAcessos,
 } from '@/lib/acoes/perfis-acessos'
+import { listarSolicitacoesPendentes } from '@/lib/acoes/solicitacoes-de-acesso'
 import { listarProgramas } from '@/lib/dados/programas'
 import { obterSessao } from '@/lib/sessao-servidor'
 import { temPerfil } from '@/lib/dominio/perfis'
@@ -23,10 +24,11 @@ export default async function PaginaPerfisEAcessos() {
     )
   }
 
-  const [usuarios, programas, permissoesSecoes] = await Promise.all([
+  const [usuarios, programas, permissoesSecoes, solicitacoesPendentes] = await Promise.all([
     listarUsuariosComAcessos(),
     listarProgramas(),
     listarPermissoesDeSecoes(),
+    listarSolicitacoesPendentes(),
   ])
 
   return (
@@ -43,6 +45,7 @@ export default async function PaginaPerfisEAcessos() {
       <PainelDePerfisEAcessos
         usuarios={usuarios}
         permissoesSecoes={permissoesSecoes}
+        solicitacoesPendentes={solicitacoesPendentes}
         programas={programas
           .filter((programa) => programa.estado !== 'inativo')
           .map((programa) => ({ id: programa.id, nome: programa.nome }))}

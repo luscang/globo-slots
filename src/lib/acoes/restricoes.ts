@@ -72,7 +72,7 @@ export async function salvarRestricao(
 
   if (error) {
     console.error('Falha ao gravar restrição:', error.message)
-    return { erros: ['Não foi possível gravar a restrição. Tente novamente.'], id: null }
+    return { erros: [`Não foi possível gravar a restrição. Detalhe técnico: ${error.message}`], id: null }
   }
 
   if (!data || data.length === 0) {
@@ -100,7 +100,7 @@ export async function excluirRestricao(
     .eq('id', restricaoId)
     .eq('programa_id', programaId)
 
-  if (error) return { erro: 'Não foi possível excluir a restrição. Tente novamente.' }
+  if (error) return { erro: `Não foi possível excluir a restrição. Detalhe técnico: ${error.message}` }
   if (!count) return { erro: 'O banco não deixou excluir. Confira sua permissão neste programa.' }
 
   revalidatePath(`/configuracoes/programas/${programaId}/restricoes`)
@@ -147,7 +147,8 @@ export async function verificarRestricaoDaConsulta(
       'Falha ao validar restrições da Nova Consulta:',
       respostaCliente.error?.message ?? respostaRestricoes.error?.message,
     )
-    return { restricao: null, erro: 'Não foi possível validar as restrições deste programa. Tente novamente.' }
+    const detalhe = respostaCliente.error?.message ?? respostaRestricoes.error?.message
+    return { restricao: null, erro: `Não foi possível validar as restrições deste programa. Detalhe técnico: ${detalhe}` }
   }
 
   const segmentacoes = [...new Set(

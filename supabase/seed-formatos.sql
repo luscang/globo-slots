@@ -2,7 +2,7 @@
 -- Pode rodar quantas vezes quiser: não duplica nada.
 -- Dado não sensível (formatos e categorias) — este arquivo É versionado.
 
--- Formatos e suas categorias (73 linhas)
+-- Formatos e suas categorias (74 linhas)
 insert into formatos (formato, categoria) values
   ('AÇÃO DE CONTEÚDO DETERMINADA', 'AÇÃO DE CONTEÚDO'),
   ('AÇÃO DE CONTEÚDO ESTÁTICO', 'AÇÃO DE CONTEÚDO'),
@@ -76,5 +76,6 @@ insert into formatos (formato, categoria) values
   ('FLASHES', 'AÇÃO DE CONTEÚDO'),
   ('PROGRAMETE COM MARCA GLOBO', 'CONTEÚDO NO BREAK'),
   ('-', 'AÇÃO DE CONTEÚDO'),
-  ('QR CODE', 'INSERT')
+  ('QR CODE', 'INSERT'),
+  ('AÇÃO PLENA PAYTV AA', 'AÇÃO DE CONTEÚDO')
 on conflict (formato) do update set categoria = excluded.categoria;

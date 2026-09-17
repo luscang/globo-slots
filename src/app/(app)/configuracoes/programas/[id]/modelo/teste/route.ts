@@ -38,29 +38,30 @@ export async function GET(
     return new Response('Sem permissão para visualizar o teste deste modelo.', { status: 403 })
   }
 
+  const url = new URL(request.url)
+  const modalidade = url.searchParams.get('modalidade') === 'regional' ? 'regional' : 'nacional'
+
   const [programa, slides, periodosEspeciais] = await Promise.all([
     obterPrograma(id),
-    listarSlidesDoModelo(id),
+    listarSlidesDoModelo(id, modalidade),
     listarDatasEspeciais(id),
   ])
   if (!programa) return new Response('Programa não encontrado.', { status: 404 })
 
-  const url = new URL(request.url)
-  const incluirDigital = url.searchParams.get('digital') === '1' && programa.contem_digital
-  const incluirRedesSociais = url.searchParams.get('redes') === '1' && programa.redes_sociais
   const itens = datasDeTeste(programa.dias_da_semana).map((data) => ({
     data,
     quantidade: 1,
-    pracas: [] as string[],
+    pracas: modalidade === 'regional' ? ['SP'] : ([] as string[]),
   }))
 
+  // Digital e Redes Sociais não são mais escolha nenhuma: no Nacional entram
+  // sempre que o programa os oferece; no Regional, nunca — calcularResumoFinanceiro
+  // já aplica essa regra sozinho a partir de `programa` e `modalidade`.
   const resumo = calcularResumoFinanceiro({
     programa,
-    modalidade: 'nacional',
+    modalidade,
     itens,
     periodosEspeciais,
-    incluirDigital,
-    incluirRedesSociais,
   })
 
   const pdf = await gerarPdfDaProposta({
@@ -69,7 +70,7 @@ export async function GET(
     clienteNome: 'ANUNCIANTE TESTE',
     programaNome: programa.nome,
     objetivo: 'Apresentar a marca de forma contextualizada ao público do programa, reforçando a mensagem principal da campanha e a conexão com a audiência.',
-    modalidade: 'nacional',
+    modalidade,
     resumo,
     slides,
     modoTeste: true,

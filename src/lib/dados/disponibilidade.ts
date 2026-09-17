@@ -7,6 +7,7 @@ import { lerPaginado } from './paginacao'
 import { montarMapa, ocupaSlot } from '../dominio/formatos'
 import { indexarAnunciantes, type ClienteClassificado } from '../dominio/casamento-anunciante'
 import {
+  acoesRegionaisDistintasNoMes,
   calcularDisponibilidadeDoMes,
   diasDoMes,
   type DiaDeDisponibilidade,
@@ -32,7 +33,13 @@ export type ResultadoDeDisponibilidade = {
   precosRegionais: PrecoDePraca[]
   /** Limite do anunciante no programa/mês; zero = sem teto. */
   limiteMensal: number
-  /** Quantas ações desse anunciante já existem no programa/mês. */
+  /**
+   * Quantas ações já contam para o teto mensal do programa/mês. No nacional,
+   * é por anunciante; no regional, são as ações regionais distintas
+   * (data + cliente) do PROGRAMA inteiro nesse mês — R16, contagem
+   * compartilhada entre todos os clientes, como o campo Bloqueio mensal
+   * regional já documenta.
+   */
   acoesDoAnuncianteNoMes: number
 }
 
@@ -334,12 +341,15 @@ export async function carregarDisponibilidade(params: {
       : {}),
   }
 
+  const acoesRegionaisNoMes =
+    modalidade === 'regional' ? acoesRegionaisDistintasNoMes(acoesRegionais, new Set(dias)) : 0
+
   return {
     dias: calcularDisponibilidadeDoMes(insumos),
     programa,
     erro: null,
     precosRegionais,
     limiteMensal,
-    acoesDoAnuncianteNoMes: modalidade === 'nacional' ? acoesDoAnuncianteNoMes : 0,
+    acoesDoAnuncianteNoMes: modalidade === 'nacional' ? acoesDoAnuncianteNoMes : acoesRegionaisNoMes,
   }
 }

@@ -9,6 +9,7 @@ import { calcularCustoDaAcaoNacional } from './custo-da-acao-nacional'
 import { calcularCustoDaAcaoRegional, type PrecoDaPracaParaCalculo } from './custo-da-acao-regional'
 import { PRACAS, temSlotRegionalEm, regionalConsomeSlotNacional, type AcaoRegional } from './regional'
 import { extrairMnemonico } from './programas'
+import { normalizarNome } from './texto'
 
 /**
  * O MOTOR. Único lugar do sistema que sabe em que ORDEM as regras se aplicam.
@@ -138,7 +139,7 @@ function acoesDoPrograma(
 }
 
 /** Ações regionais distintas (data + cliente) do mês. */
-function acoesRegionaisDistintasNoMes(acoesRegionais: AcaoRegional[], doMes: Set<string>): number {
+export function acoesRegionaisDistintasNoMes(acoesRegionais: AcaoRegional[], doMes: Set<string>): number {
   const distintas = new Set(
     acoesRegionais
       .filter((acao) => doMes.has(acao.data_de_exibicao))
@@ -231,10 +232,16 @@ export function calcularDisponibilidadeDoMes(
     const regionaisNaData = insumos.acoesRegionais.filter((acao) => acao.data_de_exibicao === data)
 
     const porPraca = new Map(regionaisNaData.map((acao) => [acao.praca_codigo, acao.cliente_nome]))
+    // R8 (revista) — uma praça já vendida a OUTRO cliente bloqueia a data
+    // inteira; ao próprio cliente da consulta, só a(s) praça(s) que ele já tem.
+    const clienteAtual = normalizarNome(insumos.cliente.nome)
+    const vendidaAOutroCliente = regionaisNaData.some(
+      (acao) => normalizarNome(acao.cliente_nome) !== clienteAtual,
+    )
     const pracas: PracaNoDia[] = regional
       ? PRACAS.map((praca) => ({
           praca_codigo: praca,
-          disponivel: !porPraca.has(praca),
+          disponivel: !porPraca.has(praca) && !vendidaAOutroCliente,
           cliente_nome: porPraca.get(praca) ?? null,
         }))
       : []

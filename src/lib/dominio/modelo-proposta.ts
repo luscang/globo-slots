@@ -10,11 +10,15 @@ export const SECOES_DO_MODELO = [
 
 export type SecaoDoModeloDeProposta = (typeof SECOES_DO_MODELO)[number]
 
+/** Nacional e regional têm modelos independentes — ver R (modelo de proposta regional). */
+export type ModalidadeDoModelo = 'nacional' | 'regional'
+
 export type SlideDoModeloDeProposta = {
   id: string
   programa_id: string
   imagem_url: string
   secao: SecaoDoModeloDeProposta
+  modalidade: ModalidadeDoModelo
   ordem: number
   criado_em: string
   atualizado_em: string
@@ -39,6 +43,9 @@ export function ordenarSlidesDoModelo(
 export function slidesDaSecao(
   slides: SlideDoModeloDeProposta[],
   secao: SecaoDoModeloDeProposta,
+  modalidade: ModalidadeDoModelo,
 ): SlideDoModeloDeProposta[] {
-  return ordenarSlidesDoModelo(slides.filter((slide) => slide.secao === secao))
+  return ordenarSlidesDoModelo(
+    slides.filter((slide) => slide.secao === secao && slide.modalidade === modalidade),
+  )
 }

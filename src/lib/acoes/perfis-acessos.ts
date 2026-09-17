@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { criarClienteServidor } from '../supabase/cliente-servidor'
+import { criarClienteServico } from '../supabase/cliente-servico'
+import { criarOuReaproveitarConta, definirPerfisDoUsuario } from './contas-de-usuario'
 import { obterSessao } from '../sessao-servidor'
 import {
   SECOES_DO_APP,
@@ -159,4 +161,109 @@ export async function salvarAcessosUsuario(entrada: {
 
   revalidatePath('/configuracoes/perfis')
   return { erro: null }
+}
+
+/**
+ * Cria uma conta nova direto em Perfis e acessos, sem passar pela tela
+ * pública de solicitação — para quando o Proprietário já sabe quem quer
+ * incluir e qual perfil dar (ex.: outro Proprietário ou PO do produto).
+ */
+export async function criarUsuarioComPerfil(entrada: {
+  nome: string
+  email: string
+  perfis: Perfil[]
+}): Promise<{ erro: string | null }> {
+  await exigirProprietario()
+
+  const nome = entrada.nome.trim()
+  const email = entrada.email.trim()
+  if (!nome) return { erro: 'Informe o nome.' }
+  if (!email) return { erro: 'Informe o e-mail.' }
+
+  const perfis = [...new Set(entrada.perfis)].filter((perfil) => PERFIS_VALIDOS.includes(perfil))
+  if (perfis.length === 0) return { erro: 'Selecione ao menos um perfil.' }
+
+  const servico = criarClienteServico()
+  const { usuarioId, erro: erroConta } = await criarOuReaproveitarConta(servico, email)
+  if (!usuarioId) return { erro: erroConta }
+
+  const { erro: erroPerfil } = await definirPerfisDoUsuario(servico, usuarioId, nome, perfis)
+  if (erroPerfil) return { erro: `Conta criada, mas não foi possível gravar o perfil: ${erroPerfil}` }
+
+  revalidatePath('/configuracoes/perfis')
+  return { erro: null }
+}
+
+async function unicoProprietarioBloqueado(
+  supabase: Awaited<ReturnType<typeof criarClienteServidor>>,
+  usuarioId: string,
+): Promise<boolean> {
+  const { data: perfisDoUsuario } = await supabase
+    .from('perfil_usuario')
+    .select('perfil')
+    .eq('usuario_id', usuarioId)
+  const eraProprietario = (perfisDoUsuario ?? []).some((linha) => linha.perfil === 'proprietario')
+  if (!eraProprietario) return false
+
+  const { count } = await supabase
+    .from('perfil_usuario')
+    .select('usuario_id', { count: 'exact', head: true })
+    .eq('perfil', 'proprietario')
+  return (count ?? 0) <= 1
+}
+
+/** Só revoga os perfis (fallback quando a exclusão da conta é bloqueada). */
+async function removerAcessoDoUsuario(usuarioId: string): Promise<{ erro: string | null }> {
+  const supabase = await criarClienteServidor()
+  const { error } = await supabase.rpc('remover_acessos_usuario', { p_usuario_id: usuarioId })
+
+  if (error) {
+    const texto = error.message.toLowerCase()
+    if (texto.includes('remover_acessos_usuario') || texto.includes('could not find')) {
+      return { erro: 'Execute supabase/schema-entrega-11-solicitacoes-de-acesso.sql no Supabase para habilitar a remoção de acesso.' }
+    }
+    return { erro: error.message }
+  }
+
+  revalidatePath('/configuracoes/perfis')
+  return { erro: null }
+}
+
+/**
+ * Exclui a conta por completo (Admin API do Supabase) — a pessoa some de
+ * verdade, inclusive do login.
+ *
+ * `propostas.usuario_id` e `consultas.usuario_id` têm `on delete
+ * restrict`/`cascade` de propósito: histórico comercial nunca pode ficar
+ * sem autor. Isso significa que quem já gerou consulta ou proposta NÃO PODE
+ * ser excluído — o Postgres recusa a exclusão da conta. Nesse caso, em vez
+ * de só devolver um erro, cai automaticamente para revogar o acesso (a
+ * conta continua existindo, mas a pessoa não entra mais) e avisa por quê.
+ */
+export async function excluirUsuario(usuarioId: string): Promise<{ erro: string | null; aviso: string | null }> {
+  await exigirProprietario()
+
+  const supabase = await criarClienteServidor()
+  if (await unicoProprietarioBloqueado(supabase, usuarioId)) {
+    return { erro: 'Não é possível excluir o único Proprietário do sistema.', aviso: null }
+  }
+
+  const servico = criarClienteServico()
+  const { error } = await servico.auth.admin.deleteUser(usuarioId)
+
+  if (!error) {
+    revalidatePath('/configuracoes/perfis')
+    return { erro: null, aviso: null }
+  }
+
+  const resultadoFallback = await removerAcessoDoUsuario(usuarioId)
+  if (resultadoFallback.erro) return { erro: resultadoFallback.erro, aviso: null }
+
+  return {
+    erro: null,
+    aviso:
+      'Esta conta já tem consultas ou propostas registradas, então não pode ser excluída — isso apagaria ' +
+      'histórico comercial. O acesso foi removido mesmo assim: a pessoa não consegue mais entrar, mas a ' +
+      'conta e o histórico continuam intactos.',
+  }
 }

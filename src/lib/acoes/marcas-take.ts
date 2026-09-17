@@ -33,7 +33,7 @@ export async function confirmarAnuncianteTake(
     .update({ cliente_id: clienteId, status: 'confirmado' }, { count: 'exact' })
     .eq('id', anuncianteTakeId)
 
-  if (error) return { erro: 'Não foi possível salvar o relacionamento. Tente novamente.' }
+  if (error) return { erro: `Não foi possível salvar o relacionamento. Detalhe técnico: ${error.message}` }
   if (!count) return { erro: 'O banco não deixou gravar. Confira sua permissão.' }
 
   revalidarRelacionamentos()
@@ -73,7 +73,7 @@ export async function corrigirRelacionamentoMarca(
     .eq('anunciante_take_id', anuncianteTakeId)
     .eq('marca_id', marcaId)
 
-  if (error) return { erro: 'Não foi possível salvar a correção. Tente novamente.' }
+  if (error) return { erro: `Não foi possível salvar a correção. Detalhe técnico: ${error.message}` }
   if (!count) return { erro: 'O relacionamento informado não foi encontrado.' }
 
   revalidarRelacionamentos()
@@ -95,7 +95,7 @@ export async function removerCorrecaoRelacionamentoMarca(
     .eq('anunciante_take_id', anuncianteTakeId)
     .eq('marca_id', marcaId)
 
-  if (error) return { erro: 'Não foi possível remover a correção. Tente novamente.' }
+  if (error) return { erro: `Não foi possível remover a correção. Detalhe técnico: ${error.message}` }
   if (!count) return { erro: 'O relacionamento informado não foi encontrado.' }
 
   revalidarRelacionamentos()

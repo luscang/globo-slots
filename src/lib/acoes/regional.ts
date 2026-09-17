@@ -95,7 +95,7 @@ export async function salvarPrecos(
   )
 
   if (error) {
-    return { erros: ['Não foi possível gravar os preços. Tente novamente.'] }
+    return { erros: [`Não foi possível gravar os preços. Detalhe técnico: ${error.message}`] }
   }
 
   revalidatePath(`/configuracoes/programas/${programaId}/regional`)
@@ -166,7 +166,7 @@ async function conferirRestricaoEConcorrencia(
     .eq('programa_id', programaId)
 
   if (erroRestricoes) {
-    return ['Não foi possível conferir as restrições deste programa. Tente novamente.']
+    return [`Não foi possível conferir as restrições deste programa. Detalhe técnico: ${erroRestricoes.message}`]
   }
 
   const restricao = restricaoQueBloqueia((restricoes ?? []) as RegraDeRestricao[], anunciante)
@@ -302,7 +302,7 @@ export async function registrarAcaoRegional(
     .eq('data', dados.data)
 
   if (erroBloqueios) {
-    return { erros: ['Não foi possível conferir se esta data está bloqueada. Tente novamente.'] }
+    return { erros: [`Não foi possível conferir se esta data está bloqueada. Detalhe técnico: ${erroBloqueios.message}`] }
   }
 
   const { data: acoesNaData, error: erroAcoes } = await supabase
@@ -312,7 +312,7 @@ export async function registrarAcaoRegional(
     .eq('data_de_exibicao', dados.data)
 
   if (erroAcoes) {
-    return { erros: ['Não foi possível conferir as praças já vendidas nesta data. Tente novamente.'] }
+    return { erros: [`Não foi possível conferir as praças já vendidas nesta data. Detalhe técnico: ${erroAcoes.message}`] }
   }
 
   // `validarCompra` recebe o cliente (R9 conta o que ele JÁ tem na data, e não

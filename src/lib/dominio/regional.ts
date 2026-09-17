@@ -35,14 +35,31 @@ export function pracasOcupadasEm(acoes: AcaoRegional[], dataIso: string): string
   return acoes.filter((a) => a.data_de_exibicao === dataIso).map((a) => a.praca_codigo)
 }
 
-/** R8 — cada praça tem seu próprio slot na data. */
+/**
+ * R8 (revista) — a data regional é exclusiva de quem primeiro vender ali: uma
+ * vez vendida qualquer praça a um cliente, as demais praças da mesma data
+ * ficam indisponíveis para QUALQUER OUTRO cliente. O próprio cliente que já
+ * comprou pode continuar comprando praças adicionais na mesma data, até o
+ * teto de `max_pracas_por_acao` (R9).
+ *
+ * Sem `clienteNome` (tela ainda não sabe quem está comprando), o comportamento
+ * é o mais conservador: qualquer praça já ocupada bloqueia a data inteira.
+ */
 export function pracasLivresEm(
   config: ConfiguracaoRegional,
   acoes: AcaoRegional[],
   dataIso: string,
+  clienteNome?: string,
 ): string[] {
   if (!temSlotRegionalEm(config, dataIso)) return []
-  const ocupadas = new Set(pracasOcupadasEm(acoes, dataIso))
+  const ocupacoes = acoes.filter((a) => a.data_de_exibicao === dataIso)
+  if (ocupacoes.length === 0) return [...PRACAS]
+
+  const alvo = clienteNome ? normalizarNome(clienteNome) : ''
+  const vendidaAOutroCliente = ocupacoes.some((a) => normalizarNome(a.cliente_nome) !== alvo)
+  if (vendidaAOutroCliente) return []
+
+  const ocupadas = new Set(ocupacoes.map((a) => a.praca_codigo))
   return PRACAS.filter((praca) => !ocupadas.has(praca))
 }
 
@@ -122,12 +139,28 @@ export function validarCompra(
     )
   }
 
-  const ocupadas = new Set(pracasOcupadasEm(acoes, dataIso))
   for (const praca of pracasDesejadas) {
     if (!PRACAS.includes(praca as (typeof PRACAS)[number])) {
       erros.push(`Praça desconhecida: ${praca}.`)
-    } else if (ocupadas.has(praca)) {
-      erros.push(`A praça ${praca} já está vendida nesta data.`)
+    }
+  }
+
+  // R8 (revista) — uma praça já vendida a OUTRO cliente bloqueia a data
+  // inteira; ao próprio cliente, só a(s) praça(s) que ele já tem.
+  const ocupacoes = acoes.filter((a) => a.data_de_exibicao === dataIso)
+  const nomeAtual = contexto.clienteNome ? normalizarNome(contexto.clienteNome) : ''
+  const donaDeOutroCliente = ocupacoes.find((a) => normalizarNome(a.cliente_nome) !== nomeAtual)
+  if (donaDeOutroCliente) {
+    erros.push(
+      `Esta data já tem praça vendida para outro cliente (${donaDeOutroCliente.cliente_nome}) ` +
+        'e fica indisponível para novas vendas regionais.',
+    )
+  } else {
+    const ocupadas = new Set(ocupacoes.map((a) => a.praca_codigo))
+    for (const praca of pracasDesejadas) {
+      if (PRACAS.includes(praca as (typeof PRACAS)[number]) && ocupadas.has(praca)) {
+        erros.push(`A praça ${praca} já está vendida nesta data.`)
+      }
     }
   }
 

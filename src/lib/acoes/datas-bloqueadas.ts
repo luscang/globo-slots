@@ -196,7 +196,7 @@ export async function desbloquearData(programaId: string, data: string): Promise
     .eq('programa_id', programaId)
     .eq('data', data)
 
-  if (error) return { erro: 'Não foi possível desbloquear a data. Tente novamente.' }
+  if (error) return { erro: `Não foi possível desbloquear a data. Detalhe técnico: ${error.message}` }
 
   // DELETE barrado pelo RLS volta sem erro e sem linhas — sem conferir, a
   // tela diria "desbloqueada" com o registro ainda no banco.

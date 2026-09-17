@@ -64,6 +64,10 @@ export function FormularioEntrada({ email, senha, erro, entrando, aoMudarEmail, 
           {entrando ? 'Entrando…' : 'Entrar no Globo Slots'}
         </button>
       </form>
+
+      <p className="mt-6 text-center text-[12.5px] text-[#6b717b]">
+        Ainda não tem acesso? <Link href="/solicitar-acesso" className="font-semibold text-[#4254e8] hover:underline">Solicitar acesso</Link>
+      </p>
     </div>
   )
 }

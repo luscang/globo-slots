@@ -57,8 +57,6 @@ export default function PassoResumo() {
       programaId: estado.programaId,
       modalidade: estado.modalidade,
       itens: estado.itens,
-      incluirDigital: estado.incluirDigital,
-      incluirRedesSociais: estado.incluirRedesSociais,
     }).then((retorno) => {
       if (!ativo) return
       setResultadoResumo({ chave, resumo: retorno.resumo, erro: retorno.erro })
@@ -88,8 +86,6 @@ export default function PassoResumo() {
         objetivo: estado.objetivo,
         modalidade: estado.modalidade,
         itens: estado.itens,
-        incluirDigital: estado.incluirDigital,
-        incluirRedesSociais: estado.incluirRedesSociais,
         propostaAnteriorId: estado.propostaAnteriorId,
       })
       setResultado(retorno)
@@ -317,9 +313,9 @@ function ResultadoDaGeracao({ resultado }: { resultado: ResultadoGerarProposta }
 
         {aguardandoAprovacao ? (
           <div className="mt-3 text-[12px] leading-[1.55] text-[var(--texto-2)]">
-            <p><strong>O PDF foi gerado, mas ainda não foi liberado.</strong> O documento ficará disponível para o executivo somente depois que um Consultor do Programa aprovar esta versão.</p>
-            {resultado.aprovacaoErro ? <p className="mt-2 font-semibold text-[#A65A00]">A proposta continua pendente. {resultado.aprovacaoErro}</p> : <p className="mt-2">A solicitação de aprovação foi enviada aos consultores vinculados ao programa.</p>}
-            {resultado.destinatarios.length > 0 && <p className="mt-1 text-[10.5px] text-[var(--texto-3)]">Consultores notificados: {resultado.destinatarios.join(', ')}</p>}
+            <p><strong>O PDF foi gerado, mas ainda não foi liberado.</strong> O documento ficará disponível para o executivo somente depois que um PO do produto aprovar esta versão.</p>
+            {resultado.aprovacaoErro ? <p className="mt-2 font-semibold text-[#A65A00]">A proposta continua pendente. {resultado.aprovacaoErro}</p> : <p className="mt-2">A solicitação de aprovação foi enviada aos POs de produto vinculados ao programa.</p>}
+            {resultado.destinatarios.length > 0 && <p className="mt-1 text-[10.5px] text-[var(--texto-3)]">POs de produto notificados: {resultado.destinatarios.join(', ')}</p>}
           </div>
         ) : sucessoPdf ? (
           <div className="mt-3 text-[12px] leading-[1.55] text-[var(--texto-2)]">

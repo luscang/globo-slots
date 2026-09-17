@@ -45,6 +45,12 @@ const GRUPOS: Grupo[] = [
         somenteProprietario: true,
       },
       {
+        href: '/configuracoes/carteira-siscom',
+        titulo: 'Carteira Siscom',
+        descricao: 'Cadastro de clientes, setor, indústria e os executivos responsáveis por cada um.',
+        somenteProprietario: true,
+      },
+      {
         href: '/configuracoes/clientes-regionais',
         titulo: 'Clientes regionais',
         descricao: 'Elegibilidade global dos anunciantes para propostas regionais.',
@@ -66,6 +72,12 @@ const GRUPOS: Grupo[] = [
         href: '/configuracoes/perfis',
         titulo: 'Perfis e acessos',
         descricao: 'Perfis dos usuários, seções visíveis e vínculos dos consultores com programas.',
+        somenteProprietario: true,
+      },
+      {
+        href: '/configuracoes/cadastro-executivo',
+        titulo: 'Cadastro Executivo',
+        descricao: 'Liga o e-mail de login de cada executivo ao nome usado na Carteira Siscom.',
         somenteProprietario: true,
       },
     ],

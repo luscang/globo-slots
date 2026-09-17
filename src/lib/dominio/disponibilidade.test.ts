@@ -334,19 +334,36 @@ describe('calcularDisponibilidadeDoMes — regional', () => {
     expect(sexta.pracas.map((p) => p.praca_codigo)).toEqual(['SP', 'RJ', 'BH', 'DF', 'PE1'])
   })
 
-  // R8: cada praça tem seu próprio slot na data.
-  it('vendidas SP, RJ e BH, sobram DF e PE1 na mesma sexta', () => {
+  // R8 (revista): a data regional é exclusiva de quem já vendeu ali.
+  it('vendidas SP, RJ e BH a outro cliente, a data fica esgotada para quem consulta', () => {
     const vendidas = ['SP', 'RJ', 'BH'].map((praca) => ({
       data_de_exibicao: '2026-09-11',
       praca_codigo: praca,
       cliente_nome: 'NESTLE',
     }))
+    // insumos() usa PEPSI como cliente por padrão — um cliente diferente de NESTLE.
     const sexta = dia(regionais({ acoesRegionais: vendidas }), '2026-09-11')
+
+    expect(sexta.estado).toBe('esgotado')
+    expect(sexta.livres).toBe(0)
+    expect(sexta.pracas.filter((p) => p.disponivel)).toEqual([])
+    expect(sexta.pracas.find((p) => p.praca_codigo === 'SP')?.cliente_nome).toBe('NESTLE')
+  })
+
+  it('para o próprio cliente que já comprou, sobram DF e PE1 na mesma sexta', () => {
+    const vendidas = ['SP', 'RJ', 'BH'].map((praca) => ({
+      data_de_exibicao: '2026-09-11',
+      praca_codigo: praca,
+      cliente_nome: 'NESTLE',
+    }))
+    const sexta = dia(
+      regionais({ acoesRegionais: vendidas, cliente: { nome: 'NESTLE', setor: null, industria: null } }),
+      '2026-09-11',
+    )
 
     expect(sexta.estado).toBe('disponivel')
     expect(sexta.livres).toBe(2)
     expect(sexta.pracas.filter((p) => p.disponivel).map((p) => p.praca_codigo)).toEqual(['DF', 'PE1'])
-    expect(sexta.pracas.find((p) => p.praca_codigo === 'SP')?.cliente_nome).toBe('NESTLE')
   })
 
   it('as cinco praças vendidas esgotam a data', () => {

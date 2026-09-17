@@ -10,8 +10,6 @@ export async function carregarResumoFinanceiro(params: {
   programaId: string
   modalidade: 'nacional' | 'regional'
   itens: ItemParaResumoFinanceiro[]
-  incluirDigital: boolean
-  incluirRedesSociais: boolean
 }): Promise<{ resumo: ResumoFinanceiroDaProposta | null; erro: string | null }> {
   const sessao = await obterSessao()
   if (!sessao) return { resumo: null, erro: 'Sessão expirada. Entre de novo.' }
@@ -31,8 +29,6 @@ export async function carregarResumoFinanceiro(params: {
       itens: params.itens,
       periodosEspeciais,
       precosRegionais,
-      incluirDigital: params.incluirDigital,
-      incluirRedesSociais: params.incluirRedesSociais,
     }),
     erro: null,
   }

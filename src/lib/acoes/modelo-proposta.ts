@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { criarClienteServidor } from '../supabase/cliente-servidor'
 import { obterSessao } from '../sessao-servidor'
 import { podeEditarPrograma, type Perfil } from '../dominio/perfis'
-import type { SecaoDoModeloDeProposta } from '../dados/modelo-proposta'
+import type { ModalidadeDoModelo, SecaoDoModeloDeProposta } from '../dados/modelo-proposta'
 
 const BUCKET = 'programas'
 const TAMANHO_MAXIMO_BYTES = 8 * 1024 * 1024
@@ -12,11 +12,13 @@ const SECOES_DE_SLIDE_UNICO = new Set<SecaoDoModeloDeProposta>(['capa', 'valor',
 const SECOES_VALIDAS = new Set<SecaoDoModeloDeProposta>([
   'capa', 'conteudo', 'digital', 'redes_sociais', 'valor', 'observacoes', 'contracapa',
 ])
+const MODALIDADES_VALIDAS = new Set<ModalidadeDoModelo>(['nacional', 'regional'])
 
 type SlideBasico = {
   id: string
   ordem: number
   secao: SecaoDoModeloDeProposta
+  modalidade: ModalidadeDoModelo
   imagem_url?: string
 }
 
@@ -43,6 +45,10 @@ function secaoValida(valor: string): valor is SecaoDoModeloDeProposta {
   return SECOES_VALIDAS.has(valor as SecaoDoModeloDeProposta)
 }
 
+function modalidadeValida(valor: string): valor is ModalidadeDoModelo {
+  return MODALIDADES_VALIDAS.has(valor as ModalidadeDoModelo)
+}
+
 function validarArquivos(arquivos: File[]): string | null {
   if (arquivos.length === 0) return 'Escolha uma ou mais imagens para adicionar.'
   for (const arquivo of arquivos) {
@@ -59,6 +65,7 @@ function validarArquivos(arquivos: File[]): string | null {
 export async function adicionarSlidesAoModelo(
   programaId: string,
   secaoInformada: string,
+  modalidadeInformada: string,
   formulario: FormData,
 ): Promise<{ erro: string | null; adicionados: number }> {
   const sessao = await obterSessao()
@@ -69,8 +76,12 @@ export async function adicionarSlidesAoModelo(
   if (!secaoValida(secaoInformada)) {
     return { erro: 'Seção de proposta inválida.', adicionados: 0 }
   }
+  if (!modalidadeValida(modalidadeInformada)) {
+    return { erro: 'Modalidade de proposta inválida.', adicionados: 0 }
+  }
 
   const secao = secaoInformada
+  const modalidade = modalidadeInformada
   const arquivos = formulario
     .getAll('arquivos')
     .filter((item): item is File => item instanceof File && item.size > 0)
@@ -89,7 +100,7 @@ export async function adicionarSlidesAoModelo(
   const uploads: Array<{ caminho: string; url: string }> = []
 
   for (const arquivo of arquivos) {
-    const caminho = `modelos/${programaId}/${secao}/${crypto.randomUUID()}.${extensaoDe(arquivo.name)}`
+    const caminho = `modelos/${programaId}/${modalidade}/${secao}/${crypto.randomUUID()}.${extensaoDe(arquivo.name)}`
     const { error: erroUpload } = await supabase.storage.from(BUCKET).upload(caminho, arquivo, {
       contentType: arquivo.type,
       upsert: false,
@@ -110,6 +121,7 @@ export async function adicionarSlidesAoModelo(
       .select('id, imagem_url')
       .eq('programa_id', programaId)
       .eq('secao', secao)
+      .eq('modalidade', modalidade)
       .maybeSingle()
 
     if (existente?.id) {
@@ -131,6 +143,7 @@ export async function adicionarSlidesAoModelo(
         programa_id: programaId,
         imagem_url: uploads[0].url,
         secao,
+        modalidade,
         ordem: 1,
       })
       if (erroRegistro) {
@@ -144,6 +157,7 @@ export async function adicionarSlidesAoModelo(
       .select('ordem')
       .eq('programa_id', programaId)
       .eq('secao', secao)
+      .eq('modalidade', modalidade)
       .order('ordem', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -153,6 +167,7 @@ export async function adicionarSlidesAoModelo(
       programa_id: programaId,
       imagem_url: upload.url,
       secao,
+      modalidade,
       ordem: primeiraOrdem + indice,
     }))
 
@@ -181,7 +196,7 @@ export async function moverSlideDoModelo(
   const supabase = await criarClienteServidor()
   const { data: atual, error: erroAtual } = await supabase
     .from('programa_modelo_slides')
-    .select('id, ordem, secao')
+    .select('id, ordem, secao, modalidade')
     .eq('id', slideId)
     .eq('programa_id', programaId)
     .maybeSingle()
@@ -192,9 +207,10 @@ export async function moverSlideDoModelo(
 
   const { data, error } = await supabase
     .from('programa_modelo_slides')
-    .select('id, ordem, secao')
+    .select('id, ordem, secao, modalidade')
     .eq('programa_id', programaId)
     .eq('secao', secao)
+    .eq('modalidade', atual.modalidade)
     .order('ordem', { ascending: true })
     .order('criado_em', { ascending: true })
 
@@ -235,7 +251,7 @@ export async function removerSlideDoModelo(
   const supabase = await criarClienteServidor()
   const { data: slide } = await supabase
     .from('programa_modelo_slides')
-    .select('imagem_url, secao')
+    .select('imagem_url, secao, modalidade')
     .eq('id', slideId)
     .eq('programa_id', programaId)
     .maybeSingle()
@@ -255,9 +271,10 @@ export async function removerSlideDoModelo(
   if (secao && !SECOES_DE_SLIDE_UNICO.has(secao)) {
     const { data: restantes } = await supabase
       .from('programa_modelo_slides')
-      .select('id, ordem, secao')
+      .select('id, ordem, secao, modalidade')
       .eq('programa_id', programaId)
       .eq('secao', secao)
+      .eq('modalidade', slide?.modalidade ?? 'nacional')
       .order('ordem', { ascending: true })
       .order('criado_em', { ascending: true })
 

@@ -5,6 +5,7 @@ import { regionalConsomeSlotNacional } from '../dominio/regional'
 import { normalizarNome } from '../dominio/texto'
 import { obterPrograma, listarApelidos } from './programas'
 import { listarAcoesRegionais } from './regional'
+import { lerPaginado } from './paginacao'
 
 export type InventarioDaOportunidade = {
   slotsTotal: number
@@ -100,8 +101,12 @@ export async function carregarInventarioDaOportunidade(programaId: string, dataI
     if (clienteId) clienteIds.add(clienteId)
   }
 
-  const clientesResp = await supabase.from('clientes').select('id, nome, setor')
-  const clientes = clientesResp.error ? [] : (clientesResp.data ?? []) as Cliente[]
+  // `clientes` já passa de 20 mil linhas — sem paginar, o PostgREST corta
+  // silenciosamente em 1000 e um comprador fora das primeiras 1000 some do
+  // cálculo de setores sem erro nenhum.
+  const { linhas: clientes } = await lerPaginado<Cliente>((de, ate) =>
+    supabase.from('clientes').select('id, nome, setor').range(de, ate),
+  )
   const clientePorId = new Map(clientes.map((cliente) => [cliente.id, cliente]))
   const clientePorNome = new Map(clientes.map((cliente) => [normalizarNome(cliente.nome), cliente]))
   const setores = new Set<string>()

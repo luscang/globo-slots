@@ -294,6 +294,12 @@ export function InicioDaConsulta({ programas }: Props) {
                     </span>
                   </span>
                 </label>
+
+                {modalidade === 'regional' && (
+                  <div role="alert" className="mt-3 rounded-[var(--raio-card)] border border-[#F1D3A6] bg-[#FFF8EC] px-4 py-3 text-[12px] leading-[1.5] text-[#8A5700]">
+                    <strong>Atenção:</strong> este cliente só pode ter uma ação regional vendida por mês neste programa. Você pode montar mais de uma consulta com datas diferentes, mas só uma data do mês poderá de fato ser vendida.
+                  </div>
+                )}
               </div>
             )}
           </div>

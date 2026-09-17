@@ -24,7 +24,7 @@ export async function adicionarClienteElegivel(clienteId: string): Promise<{ err
 
   const supabase = await criarClienteServidor()
   const { error, count } = await supabase.from('clientes').update({ apto_regional: true }, { count: 'exact' }).eq('id', clienteId)
-  if (error) return { erro: 'Não foi possível gravar a elegibilidade. Tente novamente.' }
+  if (error) return { erro: `Não foi possível gravar a elegibilidade. Detalhe técnico: ${error.message}` }
   if (!count) return { erro: 'O banco não deixou gravar. Confira sua permissão.' }
   revalidatePath(CAMINHO_DA_TELA)
   return { erro: null }
@@ -38,7 +38,7 @@ export async function removerClienteElegivel(clienteId: string): Promise<{ erro:
 
   const supabase = await criarClienteServidor()
   const { error, count } = await supabase.from('clientes').update({ apto_regional: false }, { count: 'exact' }).eq('id', clienteId)
-  if (error) return { erro: 'Não foi possível remover a elegibilidade. Tente novamente.' }
+  if (error) return { erro: `Não foi possível remover a elegibilidade. Detalhe técnico: ${error.message}` }
   if (!count) return { erro: 'O banco não deixou gravar. Confira sua permissão.' }
   revalidatePath(CAMINHO_DA_TELA)
   return { erro: null }
@@ -83,7 +83,7 @@ export async function pesquisarClientesPorCnpj(textoColado: string): Promise<Res
     apto_regional: boolean
   }>((de, ate) => supabase.from('clientes').select('id, nome, cnpj, apto_regional').range(de, ate))
 
-  if (erro) return { encontrados: [], naoEncontrados: [], erro: 'Não foi possível consultar a carteira. Tente novamente.' }
+  if (erro) return { encontrados: [], naoEncontrados: [], erro: `Não foi possível consultar a carteira. Detalhe técnico: ${erro}` }
 
   const porCnpjNormalizado = new Map(
     linhas.filter((cliente) => normalizarCnpj(cliente.cnpj) !== '').map((cliente) => [normalizarCnpj(cliente.cnpj), cliente]),
@@ -91,21 +91,41 @@ export async function pesquisarClientesPorCnpj(textoColado: string): Promise<Res
 
   const encontrados: CandidatoEncontrado[] = []
   const naoEncontrados: string[] = []
-  const jaVistos = new Set<string>()
+  const idsVistos = new Set<string>()
+  const naoEncontradosVistos = new Set<string>()
 
   for (const textoOriginal of cnpjsColados) {
     const chave = normalizarCnpj(textoOriginal)
     const cliente = chave !== '' ? porCnpjNormalizado.get(chave) : undefined
     if (!cliente) {
-      naoEncontrados.push(textoOriginal)
+      // O mesmo CNPJ pode aparecer colado mais de uma vez — sem este dedup, a
+      // lista de "não encontrados" repetiria o texto e quebraria a `key` do
+      // React na tela.
+      if (!naoEncontradosVistos.has(textoOriginal)) {
+        naoEncontradosVistos.add(textoOriginal)
+        naoEncontrados.push(textoOriginal)
+      }
       continue
     }
-    if (jaVistos.has(cliente.id)) continue
-    jaVistos.add(cliente.id)
+    if (idsVistos.has(cliente.id)) continue
+    idsVistos.add(cliente.id)
     encontrados.push({ id: cliente.id, nome: cliente.nome, cnpj: cliente.cnpj, jaElegivel: cliente.apto_regional })
   }
 
   return { encontrados, naoEncontrados, erro: null }
+}
+
+// `.in('id', [...])` vai inteiro na query string da requisição (mesmo sendo
+// um update). Com milhares de UUIDs (36 caracteres cada) isso passa do limite
+// de tamanho de URL bem antes de qualquer limite do Postgres, e falha sem
+// dizer por quê. Por isso grava em lotes — 200 ids por vez fica bem longe do
+// limite (~8 KB de path+query na maioria dos servidores).
+const TAMANHO_DO_LOTE_EM_MASSA = 200
+
+function emLotes<T>(itens: T[], tamanho: number): T[][] {
+  const lotes: T[][] = []
+  for (let i = 0; i < itens.length; i += tamanho) lotes.push(itens.slice(i, i + tamanho))
+  return lotes
 }
 
 export async function adicionarClientesElegiveisEmMassa(
@@ -119,10 +139,23 @@ export async function adicionarClientesElegiveisEmMassa(
   if (idsUnicos.length === 0) return { erro: 'Nenhum cliente para adicionar.', quantidade: 0 }
 
   const supabase = await criarClienteServidor()
-  const { error, count } = await supabase.from('clientes').update({ apto_regional: true }, { count: 'exact' }).in('id', idsUnicos)
-  if (error) return { erro: 'Não foi possível gravar a elegibilidade em massa. Tente novamente.', quantidade: 0 }
-  if (!count) return { erro: 'O banco não deixou gravar. Confira sua permissão.', quantidade: 0 }
+  let total = 0
+
+  for (const lote of emLotes(idsUnicos, TAMANHO_DO_LOTE_EM_MASSA)) {
+    const { error, count } = await supabase.from('clientes').update({ apto_regional: true }, { count: 'exact' }).in('id', lote)
+    if (error) {
+      return {
+        erro: total > 0
+          ? `Gravamos ${total} de ${idsUnicos.length} clientes antes de falhar. Detalhe técnico: ${error.message}`
+          : `Não foi possível gravar a elegibilidade em massa. Detalhe técnico: ${error.message}`,
+        quantidade: total,
+      }
+    }
+    total += count ?? 0
+  }
+
+  if (total === 0) return { erro: 'O banco não deixou gravar. Confira sua permissão.', quantidade: 0 }
 
   revalidatePath(CAMINHO_DA_TELA)
-  return { erro: null, quantidade: count }
+  return { erro: null, quantidade: total }
 }

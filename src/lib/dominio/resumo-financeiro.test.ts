@@ -38,34 +38,29 @@ const programa = {
 const item = [{ data: '2026-09-08', quantidade: 1, pracas: [] }]
 
 describe('calcularResumoFinanceiro', () => {
-  it('não cobra complementos quando o executivo não os seleciona', () => {
+  // Regional nunca tem Digital nem Redes Sociais, mesmo quando o programa os oferece.
+  it('não cobra Digital nem Redes Sociais no regional, mesmo com o programa oferecendo os dois', () => {
     const resumo = calcularResumoFinanceiro({
-      programa,
-      modalidade: 'nacional',
+      programa: { ...programa, aceita_regional: true },
+      modalidade: 'regional',
       itens: item,
       periodosEspeciais: [],
-      incluirDigital: false,
-      incluirRedesSociais: false,
     })
 
-    expect(resumo.midia_tv).toBe(100)
+    expect(resumo.incluir_digital).toBe(false)
+    expect(resumo.incluir_redes_sociais).toBe(false)
     expect(resumo.midia_digital).toBe(0)
     expect(resumo.redes_sociais).toBe(0)
-    expect(resumo.simulcast).toBe(10)
-    expect(resumo.total_comercial).toBe(110)
-    expect(resumo.producao).toBe(20)
-    expect(resumo.direitos_total).toBe(16.5)
-    expect(resumo.total_geral).toBe(146.5)
   })
 
+  // No nacional, Digital e Redes Sociais deixaram de ser opcionais: entram
+  // sempre que o programa os oferece e tem preço cadastrado.
   it('separa Total Comercial de produção e direitos com Digital e Redes Sociais', () => {
     const resumo = calcularResumoFinanceiro({
       programa,
       modalidade: 'nacional',
       itens: item,
       periodosEspeciais: [],
-      incluirDigital: true,
-      incluirRedesSociais: true,
     })
 
     expect(resumo.midia_tv).toBe(100)
@@ -94,8 +89,6 @@ describe('calcularResumoFinanceiro', () => {
         data_fim: '2026-09-30',
         percentual_acrescimo: 20,
       }],
-      incluirDigital: true,
-      incluirRedesSociais: true,
     })
 
     expect(resumo.midia_tv).toBe(120)
@@ -109,14 +102,12 @@ describe('calcularResumoFinanceiro', () => {
     expect(resumo.total_geral).toBe(278.8)
   })
 
-  it('ignora opções que o programa não oferece', () => {
+  it('ignora complementos que o programa não oferece', () => {
     const resumo = calcularResumoFinanceiro({
       programa: { ...programa, contem_digital: false, redes_sociais: false },
       modalidade: 'nacional',
       itens: item,
       periodosEspeciais: [],
-      incluirDigital: true,
-      incluirRedesSociais: true,
     })
 
     expect(resumo.incluir_digital).toBe(false)
@@ -135,8 +126,6 @@ describe('calcularResumoFinanceiro', () => {
       modalidade: 'nacional',
       itens: item,
       periodosEspeciais: [],
-      incluirDigital: true,
-      incluirRedesSociais: true,
     })
 
     expect(resumo.incluir_digital).toBe(false)

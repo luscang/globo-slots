@@ -22,6 +22,7 @@ export default async function PaginaDeModeloDeProposta({
       programaNome={programa.nome}
       contemDigital={programa.contem_digital}
       temRedesSociais={programa.redes_sociais}
+      aceitaRegional={programa.aceita_regional}
       slides={slides}
     />
   )

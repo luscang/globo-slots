@@ -1,5 +1,6 @@
 import { criarClienteServidor } from './supabase/cliente-servidor'
 import { listarProgramasVinculados } from './dados/vinculos'
+import { resolverNomeDoExecutivoLogado } from './dados/carteira-executivo'
 import {
   podeAdministrarProgramas,
   secoesPadraoDosPerfis,
@@ -30,7 +31,16 @@ export async function obterSessao(): Promise<Sessao | null> {
   ])
 
   const perfisLidos = (linhasDePerfil ?? []).map((linha) => linha.perfil as Perfil)
-  const perfis = perfisLidos.length > 0 ? perfisLidos : ['executivo' as Perfil]
+  // Sem perfil explícito, só vira Executivo automaticamente quem está no
+  // Cadastro Executivo (ligado à Carteira Siscom por e-mail) — antes disso,
+  // QUALQUER conta autenticada caía aqui, mesmo sem nenhum vínculo comercial.
+  // Sem estar na carteira e sem perfil: sessão sem nenhum perfil, tratada
+  // como "sem acesso" pelo layout autenticado (ver `src/app/(app)/layout.tsx`).
+  let perfis = perfisLidos
+  if (perfis.length === 0) {
+    const estaNaCarteira = await resolverNomeDoExecutivoLogado(usuarioAutenticado.email ?? '')
+    perfis = estaNaCarteira ? ['executivo'] : []
+  }
   const programasVinculados = await listarProgramasVinculados(usuarioAutenticado.id)
 
   // Enquanto a migration ainda não tiver sido aplicada, usa os padrões do domínio.

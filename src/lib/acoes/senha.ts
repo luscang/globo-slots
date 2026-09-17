@@ -35,7 +35,7 @@ export async function redefinirSenha(
 
   const { error } = await supabase.auth.updateUser({ password: senhaNova })
   if (error) {
-    return { erro: 'Não foi possível gravar a senha nova. Tente novamente.' }
+    return { erro: `Não foi possível gravar a senha nova. Detalhe técnico: ${error.message}` }
   }
 
   return { erro: null }

@@ -93,7 +93,7 @@ export async function salvarApelidos(
   const normalizados = [...new Set(textos.map((texto) => texto.trim()).filter((texto) => texto !== ''))]
 
   const { error: erroAoLimpar } = await supabase.from('programa_apelidos').delete().eq('programa_id', programaId)
-  if (erroAoLimpar) return { erro: 'Não foi possível atualizar os apelidos. Tente novamente.' }
+  if (erroAoLimpar) return { erro: `Não foi possível atualizar os apelidos. Detalhe técnico: ${erroAoLimpar.message}` }
 
   if (normalizados.length > 0) {
     const { error: erroAoGravar } = await supabase
@@ -116,7 +116,7 @@ export async function excluirPrograma(id: string): Promise<{ erro: string | null
   const supabase = await criarClienteServidor()
   const { error, count } = await supabase.from('programas').delete({ count: 'exact' }).eq('id', id)
 
-  if (error) return { erro: 'Não foi possível excluir o programa. Tente novamente.' }
+  if (error) return { erro: `Não foi possível excluir o programa. Detalhe técnico: ${error.message}` }
   if (!count || count === 0) return { erro: 'O banco não deixou excluir. Confira se você é proprietário.' }
 
   revalidatePath('/configuracoes/programas')

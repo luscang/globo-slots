@@ -51,8 +51,6 @@ describe('resumo financeiro regional', () => {
       itens: [{ data: '2026-08-29', quantidade: 1, pracas: ['SP', 'RJ', 'BH'] }],
       periodosEspeciais: [],
       precosRegionais: precos,
-      incluirDigital: false,
-      incluirRedesSociais: false,
     })
 
     expect(resumo.midia_tv).toBe(600)
@@ -66,21 +64,22 @@ describe('resumo financeiro regional', () => {
     ])
   })
 
-  it('detalha Digital por praça quando o complemento é selecionado', () => {
+  // Regional não tem Digital, mesmo quando o programa oferece e há preço de Digital cadastrado por praça.
+  it('nunca cobra Digital no regional, mesmo com preço de Digital cadastrado nas praças', () => {
     const resumo = calcularResumoFinanceiro({
       programa,
       modalidade: 'regional',
       itens: [{ data: '2026-08-29', quantidade: 1, pracas: ['SP', 'DF'] }],
       periodosEspeciais: [],
       precosRegionais: precos,
-      incluirDigital: true,
     })
 
+    expect(resumo.incluir_digital).toBe(false)
     expect(resumo.midia_tv).toBe(500)
-    expect(resumo.midia_digital).toBe(50)
+    expect(resumo.midia_digital).toBe(0)
     expect(resumo.linhas[0].detalhe_pracas.map((item) => [item.praca_codigo, item.midia_digital])).toEqual([
-      ['SP', 10],
-      ['DF', 40],
+      ['SP', 0],
+      ['DF', 0],
     ])
     expect(resumo.producao_tv).toBe(40)
     expect(resumo.producao_digital).toBe(0)

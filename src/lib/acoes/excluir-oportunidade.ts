@@ -39,7 +39,7 @@ export async function excluirOportunidade(id: string): Promise<{ ok: boolean; er
 
   if (atual.error || !atual.data) return { ok: false, erro: 'Oportunidade não encontrada.' }
   if (!sessao.programasVinculados.includes(atual.data.programa_id)) {
-    return { ok: false, erro: 'Você não é Consultor responsável por este programa.' }
+    return { ok: false, erro: 'Você não é o PO do produto responsável por este programa.' }
   }
 
   const exclusao = await supabase

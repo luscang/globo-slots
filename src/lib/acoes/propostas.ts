@@ -30,8 +30,6 @@ export type EntradaGerarProposta = {
   objetivo: string
   modalidade: 'nacional' | 'regional'
   itens: ItemParaResumoFinanceiro[]
-  incluirDigital: boolean
-  incluirRedesSociais: boolean
 }
 
 export type ResultadoGerarProposta = {
@@ -103,13 +101,26 @@ function mesesDaEntrada(itens: ItemParaResumoFinanceiro[]): { ano: number; mes: 
   })
 }
 
+/**
+ * R16 — teto mensal, incluindo o caso de a MESMA consulta reunir mais de uma
+ * data do mês além do que já existe gravado (`carga.acoesDoAnuncianteNoMes`
+ * só enxerga o que já está no banco; sem somar `mes.quantidade`, duas datas
+ * novas do mesmo mês na mesma consulta passavam direto, porque nenhuma das
+ * duas via a outra).
+ *
+ * No regional a contagem é do PROGRAMA inteiro no mês (todos os clientes),
+ * não por anunciante — mesma regra do campo Bloqueio mensal regional que já
+ * vale para o cálculo de disponibilidade (`carregarDisponibilidade`).
+ */
 async function validarLimiteMensal(entrada: EntradaGerarProposta): Promise<string | null> {
-  if (entrada.modalidade !== 'nacional') return null
   for (const mes of mesesDaEntrada(entrada.itens)) {
     const carga = await carregarDisponibilidade({ programaId: entrada.programaId, clienteId: entrada.clienteId, modalidade: entrada.modalidade, ano: mes.ano, mes: mes.mes })
     if (carga.erro) return carga.erro
     if (carga.limiteMensal > 0 && carga.acoesDoAnuncianteNoMes + mes.quantidade > carga.limiteMensal) {
-      return `O anunciante ultrapassaria o limite de ${carga.limiteMensal} ações no programa em ${String(mes.mes).padStart(2, '0')}/${mes.ano}.`
+      const mesFormatado = `${String(mes.mes).padStart(2, '0')}/${mes.ano}`
+      return entrada.modalidade === 'nacional'
+        ? `O anunciante ultrapassaria o limite de ${carga.limiteMensal} ações no programa em ${mesFormatado}.`
+        : `Esta consulta ultrapassaria o limite de ${carga.limiteMensal} ação(ões) regional(is) por mês neste programa em ${mesFormatado}.`
     }
   }
   return null
@@ -172,10 +183,10 @@ export async function gerarProposta(entrada: EntradaGerarProposta): Promise<Resu
   const [periodosEspeciais, precosRegionais, slides] = await Promise.all([
     listarDatasEspeciais(entrada.programaId),
     entrada.modalidade === 'regional' ? listarPrecos(entrada.programaId) : Promise.resolve([]),
-    listarSlidesDoModelo(entrada.programaId),
+    listarSlidesDoModelo(entrada.programaId, entrada.modalidade),
   ])
 
-  const resumo = calcularResumoFinanceiro({ programa, modalidade: entrada.modalidade, itens: entrada.itens, periodosEspeciais, precosRegionais, incluirDigital: entrada.incluirDigital, incluirRedesSociais: entrada.incluirRedesSociais })
+  const resumo = calcularResumoFinanceiro({ programa, modalidade: entrada.modalidade, itens: entrada.itens, periodosEspeciais, precosRegionais })
   const supabase = await criarClienteServidor()
 
   const { data: proposta, error: erroProposta } = await supabase.from('propostas').insert({
@@ -258,7 +269,7 @@ export async function gerarProposta(entrada: EntradaGerarProposta): Promise<Resu
     }
     const consultores = ((consultoresData ?? []) as ConsultorAprovacao[]).filter((item) => Boolean(item.email))
     if (consultores.length === 0) {
-      const mensagem = 'A proposta ficou pendente, mas este programa não possui Consultor de Programa vinculado para receber a aprovação.'
+      const mensagem = 'A proposta ficou pendente, mas este programa não possui PO do produto vinculado para receber a aprovação.'
       await registrarEmailAprovacao(supabase, propostaId, 'falha', mensagem)
       return { ...resultadoBase, aprovacaoErro: mensagem }
     }

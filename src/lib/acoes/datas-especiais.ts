@@ -121,7 +121,7 @@ export async function excluirPeriodoEspecial(
     .eq('programa_id', programaId)
     .eq('id', id)
 
-  if (error) return { erro: 'Não foi possível excluir o período. Tente novamente.' }
+  if (error) return { erro: `Não foi possível excluir o período. Detalhe técnico: ${error.message}` }
 
   // DELETE barrado pelo RLS volta sem erro e sem linhas — sem conferir, a
   // tela diria "excluído" com o registro ainda no banco.

@@ -625,24 +625,24 @@ export async function gerarPdfDaProposta(params: {
   await adicionarCapasDaProposta({
     pdf,
     fontes,
-    slides: slidesDaSecao(slides, 'capa'),
+    slides: slidesDaSecao(slides, 'capa', params.modalidade),
     marcaNome: params.marcaNome,
     clienteNome: params.clienteNome,
   })
-  await adicionarSlides(pdf, slidesDaSecao(slides, 'conteudo'))
+  await adicionarSlides(pdf, slidesDaSecao(slides, 'conteudo', params.modalidade))
 
   if (params.resumo.incluir_digital) {
-    await adicionarSlides(pdf, slidesDaSecao(slides, 'digital'))
+    await adicionarSlides(pdf, slidesDaSecao(slides, 'digital', params.modalidade))
   }
 
   if (params.resumo.incluir_redes_sociais) {
-    await adicionarSlides(pdf, slidesDaSecao(slides, 'redes_sociais'))
+    await adicionarSlides(pdf, slidesDaSecao(slides, 'redes_sociais', params.modalidade))
   }
 
   await adicionarPropostaComercial({
     pdf,
     fontes,
-    fundo: slidesDaSecao(slides, 'valor')[0],
+    fundo: slidesDaSecao(slides, 'valor', params.modalidade)[0],
     marcaNome: params.marcaNome,
     clienteNome: params.clienteNome,
     programaNome: params.programaNome,
@@ -651,8 +651,8 @@ export async function gerarPdfDaProposta(params: {
     resumo: params.resumo,
   })
 
-  await adicionarSlides(pdf, slidesDaSecao(slides, 'observacoes'))
-  await adicionarSlides(pdf, slidesDaSecao(slides, 'contracapa'))
+  await adicionarSlides(pdf, slidesDaSecao(slides, 'observacoes', params.modalidade))
+  await adicionarSlides(pdf, slidesDaSecao(slides, 'contracapa', params.modalidade))
 
   if (params.modoTeste) {
     for (const pagina of pdf.getPages()) {

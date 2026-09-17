@@ -45,12 +45,17 @@ describe('temSlotRegionalEm', () => {
 })
 
 describe('pracasLivresEm', () => {
-  // R8: cada praça tem seu próprio slot
-  it('vendidas SP, RJ e BH, sobram DF e PE1', () => {
-    expect(pracasLivresEm(encontro, vendidas, SEXTA)).toEqual(['DF', 'PE1'])
+  // R8 (revista): a data é exclusiva de quem já vendeu ali.
+  it('vendidas a Cliente A, nenhuma praça fica livre para outro cliente', () => {
+    expect(pracasLivresEm(encontro, vendidas, SEXTA)).toEqual([])
+    expect(pracasLivresEm(encontro, vendidas, SEXTA, 'Cliente B')).toEqual([])
   })
 
-  it('sem venda nenhuma, as cinco estão livres', () => {
+  it('para o próprio cliente que já comprou, sobram DF e PE1', () => {
+    expect(pracasLivresEm(encontro, vendidas, SEXTA, 'Cliente A')).toEqual(['DF', 'PE1'])
+  })
+
+  it('sem venda nenhuma, as cinco estão livres para qualquer cliente', () => {
     expect(pracasLivresEm(encontro, [], SEXTA)).toEqual(['SP', 'RJ', 'BH', 'DF', 'PE1'])
   })
 
@@ -70,8 +75,8 @@ describe('pracasOcupadasEm', () => {
 })
 
 describe('validarCompra', () => {
-  it('aceita compra de praças livres dentro do teto', () => {
-    expect(validarCompra(encontro, vendidas, SEXTA, ['DF', 'PE1'])).toEqual([])
+  it('aceita compra de praças livres dentro do teto, sem venda anterior na data', () => {
+    expect(validarCompra(encontro, [], SEXTA, ['DF', 'PE1'])).toEqual([])
   })
 
   // R9: máximo de praças por ação de um mesmo cliente
@@ -80,8 +85,14 @@ describe('validarCompra', () => {
       .toContain('Uma ação pode ter no máximo 3 praças.')
   })
 
-  it('recusa praça já vendida', () => {
-    expect(validarCompra(encontro, vendidas, SEXTA, ['SP']))
+  // R8 (revista): sem saber quem compra, qualquer venda anterior bloqueia a data.
+  it('recusa quando a data já tem praça vendida e não se sabe quem está comprando', () => {
+    expect(validarCompra(encontro, vendidas, SEXTA, ['DF', 'PE1']))
+      .toContain('Esta data já tem praça vendida para outro cliente (Cliente A) e fica indisponível para novas vendas regionais.')
+  })
+
+  it('recusa praça já vendida ao próprio cliente que a pede de novo', () => {
+    expect(validarCompra(encontro, vendidas, SEXTA, ['SP'], { clienteNome: 'Cliente A' }))
       .toContain('A praça SP já está vendida nesta data.')
   })
 
@@ -131,9 +142,9 @@ describe('validarCompra com o cliente informado', () => {
     )
   })
 
-  it('aceita o mesmo envio para um cliente diferente', () => {
+  it('recusa o mesmo envio para um cliente diferente — a data já é do Cliente A', () => {
     expect(validarCompra(encontro, vendidas, SEXTA, ['DF', 'PE1'], { clienteNome: 'Cliente B' }))
-      .toEqual([])
+      .toContain('Esta data já tem praça vendida para outro cliente (Cliente A) e fica indisponível para novas vendas regionais.')
   })
 
   it('aceita completar o teto sem estourar', () => {

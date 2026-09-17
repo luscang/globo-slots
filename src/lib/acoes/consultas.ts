@@ -2,8 +2,10 @@
 
 import { criarClienteServidor } from '../supabase/cliente-servidor'
 import { obterSessao } from '../sessao-servidor'
-import { podeConsultarRegional } from '../dominio/perfis'
+import { podeConsultarRegional, temPerfil } from '../dominio/perfis'
 import { podeComprarRegional } from '../dominio/elegibilidade-regional'
+import { clienteNaCarteiraDoExecutivo } from '../dominio/carteira-executivo'
+import { resolverNomeDoExecutivoLogado } from '../dados/carteira-executivo'
 import { obterPrograma } from '../dados/programas'
 import { carregarDisponibilidade } from '../dados/disponibilidade'
 import { PRACAS } from '../dominio/regional'
@@ -40,6 +42,8 @@ type LinhaDeCliente = {
   setor: string | null
   industria: string | null
   apto_regional: boolean
+  executivo_linear_360: string | null
+  executivo_digital: string | null
 }
 
 type ItemAgrupado = { quantidade: number; pracas: Set<string> }
@@ -209,7 +213,7 @@ export async function gravarConsulta(
 
   const { data: clienteLinha, error: erroCliente } = await supabase
     .from('clientes')
-    .select('id, nome, setor, industria, apto_regional')
+    .select('id, nome, setor, industria, apto_regional, executivo_linear_360, executivo_digital')
     .eq('id', consulta.clienteId)
     .maybeSingle()
 
@@ -219,6 +223,19 @@ export async function gravarConsulta(
   }
   const cliente = clienteLinha as LinhaDeCliente | null
   if (!cliente) return { id: null, erros: [ERRO_CLIENTE] }
+
+  // 2a. Carteira Siscom: executivo só grava consulta para cliente da própria
+  // carteira. Proprietário e PO do produto administram tudo, sem esse filtro.
+  // A busca de cliente na tela já esconde quem está fora da carteira — isto
+  // é a proteção real, para quem tentar gravar um `clienteId` de fora dela.
+  const semRestricaoDeCarteira =
+    temPerfil(sessao.perfis, 'proprietario') || temPerfil(sessao.perfis, 'consultor_programa')
+  if (!semRestricaoDeCarteira) {
+    const nomeDoExecutivo = await resolverNomeDoExecutivoLogado(sessao.email)
+    if (!clienteNaCarteiraDoExecutivo(cliente, nomeDoExecutivo)) {
+      return { id: null, erros: [ERRO_CLIENTE] }
+    }
+  }
 
   // 2b. O segundo portão forjável: perfil autoriza a MODALIDADE, mas nada
   // até aqui checou se ESTE cliente pode comprar regional. A tela só oferece

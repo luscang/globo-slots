@@ -57,20 +57,44 @@ export default function PassoCalendario() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [programaId, clienteId, modalidade, ano, mes, tentativa])
 
-  if (!pronto) return <CarregandoDoPasso />
-  if (!estado.cliente || !programaId) return <CarregandoDoPasso />
-  const cliente = estado.cliente
-
   const carregando = resultado === null || resultado.chave !== chaveAtual
   const comErro = !carregando && resultado?.tipo === 'erro'
   const dados = !carregando && resultado?.tipo === 'ok' ? resultado.dados : null
   const dias = dados?.dias ?? []
   const programa = dados?.programa ?? null
+
+  // Digital e Redes Sociais só existem no Nacional — e lá deixaram de ser
+  // opcionais: sempre entram quando o programa os oferece e tem preço
+  // cadastrado. No Regional, nunca existem, independentemente do cadastro.
+  const digitalOfertado = modalidade === 'nacional' && programa?.contem_digital === true
+  const digitalComPreco = programa?.custo_midia_digital !== null && programa?.custo_midia_digital !== undefined
+  const digitalIncluido = digitalOfertado && digitalComPreco
+  const redesOfertadas = modalidade === 'nacional' && programa?.redes_sociais === true
+  const redesComPreco = programa?.custo_midia_redes_sociais !== null && programa?.custo_midia_redes_sociais !== undefined
+  const redesIncluidas = redesOfertadas && redesComPreco
+
+  useEffect(() => {
+    if (!programa) return
+    if (estado.incluirDigital !== digitalIncluido || estado.incluirRedesSociais !== redesIncluidas) {
+      atualizar({ incluirDigital: digitalIncluido, incluirRedesSociais: redesIncluidas })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [programa, digitalIncluido, redesIncluidas])
+
+  if (!pronto) return <CarregandoDoPasso />
+  if (!estado.cliente || !programaId) return <CarregandoDoPasso />
+  const cliente = estado.cliente
+
   const mesTodoSemExibicao = !carregando && !comErro && dias.length > 0 && dias.every((dia) => dia.estado === 'sem_exibicao')
 
   const prefixoMes = `${ano}-${String(mes).padStart(2, '0')}-`
-  const limiteMensal = modalidade === 'nacional' ? (dados?.limiteMensal ?? 0) : 0
-  const acoesCompradasNoMes = modalidade === 'nacional' ? (dados?.acoesDoAnuncianteNoMes ?? 0) : 0
+  // R16 — no regional, o teto é do PROGRAMA no mês (todos os clientes), não
+  // por anunciante, mas o mecanismo de "travar as outras datas do mês assim
+  // que a seleção atinge o teto" é o mesmo dos dois lados: `carregarDisponibilidade`
+  // já devolve `limiteMensal`/`acoesDoAnuncianteNoMes` corretos para as duas
+  // modalidades (`src/lib/dados/disponibilidade.ts`).
+  const limiteMensal = dados?.limiteMensal ?? 0
+  const acoesCompradasNoMes = dados?.acoesDoAnuncianteNoMes ?? 0
   const selecionadasNoMes = estado.itens.filter((item) => item.data.startsWith(prefixoMes)).length
   const totalComSelecao = acoesCompradasNoMes + selecionadasNoMes
   const limiteAtingidoComSelecao = limiteMensal > 0 && totalComSelecao >= limiteMensal
@@ -78,32 +102,18 @@ export default function PassoCalendario() {
   const totalPracasSelecionadas = estado.itens.reduce((total, item) => total + item.pracas.length, 0)
   const maxPracasPorAcao = Math.max(1, programa?.max_pracas_por_acao ?? 3)
 
-  const digitalOfertado = programa?.contem_digital === true
-  const digitalComPreco = programa?.custo_midia_digital !== null && programa?.custo_midia_digital !== undefined
-  const digitalDisponivel = digitalOfertado && digitalComPreco
-  const redesOfertadas = programa?.redes_sociais === true
-  const redesComPreco = programa?.custo_midia_redes_sociais !== null && programa?.custo_midia_redes_sociais !== undefined
-  const redesDisponiveis = redesOfertadas && redesComPreco
-
-  const descricaoDigital = !digitalOfertado
-    ? 'Este programa não oferece Digital como complemento.'
-    : !digitalComPreco
-      ? 'Digital está habilitado no programa, mas falta cadastrar o valor de mídia digital.'
-      : 'Adiciona mídia, produção e direitos de Digital em todas as ações.'
-
-  const descricaoRedes = !redesOfertadas
-    ? 'Este programa não oferece Redes Sociais como complemento.'
-    : !redesComPreco
-      ? 'Redes Sociais está habilitado no programa, mas falta cadastrar seu valor comercial.'
-      : 'Adiciona Redes Sociais em todas as ações; produção entra apenas se estiver cadastrada.'
-
   const diasParaExibir = dias.map((dia) => {
     const selecionada = estado.itens.some((item) => item.data === dia.data)
-    if (modalidade === 'nacional' && limiteAtingidoComSelecao && !selecionada && dia.estado === 'disponivel') {
+    if (limiteAtingidoComSelecao && !selecionada && dia.estado === 'disponivel') {
       return {
         ...dia,
         estado: 'limite_mensal' as const,
-        motivos: [...dia.motivos, `O anunciante atingiu o limite de ${limiteMensal} ações neste programa no mês.`],
+        motivos: [
+          ...dia.motivos,
+          modalidade === 'nacional'
+            ? `O anunciante atingiu o limite de ${limiteMensal} ações neste programa no mês.`
+            : `${cliente.nome} já atingiu o limite de ${limiteMensal} ação(ões) regional(is) neste programa no mês.`,
+        ],
       }
     }
     return dia
@@ -160,6 +170,16 @@ export default function PassoCalendario() {
 
     if (pracasAtuais.length >= maxPracasPorAcao) {
       setAvisoLimite(`Cada ação regional de ${estado.programaNome ?? 'este programa'} pode combinar no máximo ${maxPracasPorAcao} ${maxPracasPorAcao === 1 ? 'praça' : 'praças'}. Remova uma praça antes de selecionar outra.`)
+      return
+    }
+
+    // R16 — uma data NOVA (ainda sem praça nesta consulta) não entra se o mês
+    // já bateu o teto regional, contando o que já foi vendido de fato mais o
+    // que esta consulta já reservou em outras datas. Uma segunda praça na
+    // MESMA data (`itemAtual` já existe) não conta de novo — o teto é por
+    // data, não por praça.
+    if (!itemAtual && data.startsWith(prefixoMes) && limiteMensal > 0 && totalComSelecao >= limiteMensal) {
+      setAvisoLimite(`${cliente.nome} já atingiu o limite de ${limiteMensal} ação(ões) regional(is) de ${estado.programaNome ?? 'este programa'} neste mês, considerando as vendas existentes e esta seleção.`)
       return
     }
 
@@ -311,28 +331,18 @@ export default function PassoCalendario() {
             )}
           </div>
 
-          <div className="mt-4 rounded-[var(--raio-card)] border border-[var(--borda)] bg-white p-4">
-            <div>
-              <p className="text-[12px] font-bold text-[var(--texto)]">Complementos da proposta</p>
-              <p className="mt-1 text-[10.5px] leading-[1.45] text-[var(--texto-3)]">A opção escolhida vale para todas as ações selecionadas.</p>
+          {modalidade === 'nacional' && (
+            <div className="mt-4 rounded-[var(--raio-card)] border border-[var(--borda)] bg-white p-4">
+              <div>
+                <p className="text-[12px] font-bold text-[var(--texto)]">Complementos da proposta</p>
+                <p className="mt-1 text-[10.5px] leading-[1.45] text-[var(--texto-3)]">Fazem parte de todas as ações deste programa, sem precisar escolher.</p>
+              </div>
+              <div className="mt-3 flex flex-col gap-2.5">
+                <StatusComplemento titulo="Digital" incluido={digitalIncluido} />
+                <StatusComplemento titulo="Redes sociais" incluido={redesIncluidas} />
+              </div>
             </div>
-            <div className="mt-3 flex flex-col gap-2.5">
-              <OpcaoComplemento
-                titulo="Incluir Digital"
-                descricao={descricaoDigital}
-                marcado={digitalDisponivel && estado.incluirDigital}
-                desabilitado={!digitalDisponivel}
-                aoMudar={(marcado) => atualizar({ incluirDigital: marcado })}
-              />
-              <OpcaoComplemento
-                titulo="Incluir Redes sociais"
-                descricao={descricaoRedes}
-                marcado={redesDisponiveis && estado.incluirRedesSociais}
-                desabilitado={!redesDisponiveis}
-                aoMudar={(marcado) => atualizar({ incluirRedesSociais: marcado })}
-              />
-            </div>
-          </div>
+          )}
 
           {avisoLimite && <div className="mt-3 rounded-[var(--raio-card)] border border-[#DDD6FE] bg-[#F5F3FF] px-4 py-3 text-[11px] leading-[1.5] text-[var(--roxo)]">{avisoLimite}</div>}
 
@@ -351,12 +361,17 @@ export default function PassoCalendario() {
   )
 }
 
-function OpcaoComplemento({ titulo, descricao, marcado, desabilitado, aoMudar }: { titulo: string; descricao: string; marcado: boolean; desabilitado: boolean; aoMudar: (marcado: boolean) => void }) {
+function StatusComplemento({ titulo, incluido }: { titulo: string; incluido: boolean }) {
   return (
-    <label className={`flex items-start gap-3 rounded-[10px] border p-3 ${desabilitado ? 'cursor-not-allowed opacity-55' : 'cursor-pointer'}`} style={{ borderColor: marcado ? 'var(--roxo)' : 'var(--borda)', background: marcado ? '#F5F3FF' : 'var(--superficie-suave)' }}>
-      <input type="checkbox" checked={marcado} disabled={desabilitado} onChange={(evento) => aoMudar(evento.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--roxo)]" />
-      <span><span className="block text-[11.5px] font-bold text-[var(--texto)]">{titulo}</span><span className="mt-0.5 block text-[10px] leading-[1.4] text-[var(--texto-3)]">{descricao}</span></span>
-    </label>
+    <div className="flex items-center justify-between gap-3 rounded-[10px] border p-3" style={{ borderColor: incluido ? 'var(--roxo)' : 'var(--borda)', background: incluido ? '#F5F3FF' : 'var(--superficie-suave)' }}>
+      <span className="text-[11.5px] font-bold text-[var(--texto)]">{titulo}</span>
+      <span
+        className="rounded-full px-2.5 py-1 text-[10px] font-bold"
+        style={incluido ? { background: 'var(--disponivel-fundo)', color: 'var(--disponivel-texto)' } : { background: 'var(--superficie-suave)', color: 'var(--texto-3)' }}
+      >
+        {incluido ? 'Incluído' : 'Não oferecido pelo programa'}
+      </span>
+    </div>
   )
 }
 
