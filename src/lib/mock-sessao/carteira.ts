@@ -24,6 +24,14 @@ const CARTEIRA_MOCK: ExecutivoMock[] = [
     executivoRaw: null,
   },
   {
+    // Acesso padrão só do modo mock de desenvolvimento (login `admin`, senha
+    // `admin`). Nunca vale em produção: o modo mock é desligado fora de dev.
+    nome: 'Administrador',
+    email: 'admin',
+    papel: 'admin',
+    executivoRaw: null,
+  },
+  {
     nome: 'Junior Castro',
     email: 'junior.castro@g.globo',
     papel: 'executivo',

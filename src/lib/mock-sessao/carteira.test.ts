@@ -25,6 +25,11 @@ describe('autenticarMock', () => {
     expect(autenticarMock('nubia.andrade@g.globo', '   ')).toBeNull()
   })
 
+  it('aceita o acesso padrão admin/admin como administrador', () => {
+    const executivo = autenticarMock('admin', 'admin')
+    expect(executivo?.papel).toBe('admin')
+  })
+
   it('rejeita e-mail fora da carteira mock', () => {
     expect(autenticarMock('desconhecido@g.globo', 'x')).toBeNull()
   })
