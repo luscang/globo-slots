@@ -38,3 +38,4 @@ Database password*.txt
 # Artefatos do Office e do OneDrive
 ~$*
 *.tmp
+.worktrees/

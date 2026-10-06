@@ -1,4 +1,11 @@
+import { cookies } from 'next/headers'
 import { criarClienteServidor } from './supabase/cliente-servidor'
+import { NOME_COOKIE_SESSAO_COMPARTILHADO } from './mock-sessao/constantes'
+import {
+  ehSessaoCompartilhada,
+  loginMockAtivo,
+  traduzirSessaoCompartilhada,
+} from './mock-sessao/sessao-compartilhada'
 import { listarProgramasVinculados } from './dados/vinculos'
 import { resolverNomeDoExecutivoLogado } from './dados/carteira-executivo'
 import {
@@ -20,6 +27,8 @@ export type Sessao = {
 
 /** Quem está logado, lido no servidor antes da página ser montada. */
 export async function obterSessao(): Promise<Sessao | null> {
+  if (loginMockAtivo()) return obterSessaoMock()
+
   const supabase = await criarClienteServidor()
   const { data } = await supabase.auth.getUser()
   const usuarioAutenticado = data.user
@@ -69,6 +78,22 @@ export async function obterSessao(): Promise<Sessao | null> {
     programasVinculados,
     secoes,
   }
+}
+
+/** Modo mock: a sessão vem do cookie compartilhado com o Hub Amplificado. */
+async function obterSessaoMock(): Promise<Sessao | null> {
+  const valor = (await cookies()).get(NOME_COOKIE_SESSAO_COMPARTILHADO)?.value
+  if (!valor) return null
+
+  let dados: unknown
+  try {
+    dados = JSON.parse(valor)
+  } catch {
+    return null
+  }
+  if (!ehSessaoCompartilhada(dados)) return null
+
+  return traduzirSessaoCompartilhada(dados)
 }
 
 export function podeAdministrar(sessao: Sessao | null): boolean {

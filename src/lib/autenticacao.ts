@@ -8,7 +8,11 @@
  * aqui só se prova que a senha confere (Supabase Auth, `auth.users`).
  */
 
+import { entrar as entrarMock, sair as sairMock } from './autenticacao-mock'
 import { criarClienteNavegador } from './supabase/cliente-navegador'
+
+// Login mock compartilhado com o Hub Amplificado (só dev; ver sessao-compartilhada.ts).
+const LOGIN_MOCK = process.env.NEXT_PUBLIC_LOGIN_MOCK === '1'
 
 /** Mensagem única para credencial inválida, sem revelar qual campo errou. */
 const ERRO_CREDENCIAL_INVALIDA = 'E-mail ou senha incorretos.'
@@ -21,6 +25,8 @@ export async function entrar(
   email: string,
   senha: string,
 ): Promise<{ erro: string | null }> {
+  if (LOGIN_MOCK) return entrarMock(email, senha)
+
   const supabase = criarClienteNavegador()
 
   const { error } = await supabase.auth.signInWithPassword({
@@ -58,6 +64,7 @@ export async function entrar(
 }
 
 export async function sair(): Promise<void> {
+  if (LOGIN_MOCK) return sairMock()
   const supabase = criarClienteNavegador()
   await supabase.auth.signOut()
 }

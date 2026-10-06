@@ -121,6 +121,13 @@ export function TopoGlobal({ nome, perfis, secoes }: Props) {
                       Configurações
                     </Link>
                   )}
+                  {/* <a> puro, não <Link>: "/amplificado" só existe pelo rewrite Multi-Zones do next.config.ts; o <Link> tentaria navegação RSC e daria 404. */}
+                  <a
+                    href="/amplificado"
+                    className="block rounded-[10px] px-3 py-2.5 text-[12px] font-semibold text-[#5a606a] hover:bg-[#f5f6f7]"
+                  >
+                    Hub Amplificado
+                  </a>
                   <button
                     type="button"
                     onClick={encerrarSessao}

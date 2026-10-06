@@ -21,3 +21,21 @@ export function lerVariaveis(): { url: string; chave: string } {
 
   return { url, chave }
 }
+
+/**
+ * A chave de service-role do Supabase (bypassa RLS), só no servidor e só no
+ * login mock (`NEXT_PUBLIC_LOGIN_MOCK=1`), onde não há sessão real do Supabase.
+ * Escrita por extenso porque o Next troca o texto pelo valor no build.
+ */
+export function lerChaveServico(): string {
+  const chave = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!chave) {
+    throw new Error(
+      'Falta SUPABASE_SERVICE_ROLE_KEY no .env.local (exigida no login mock). ' +
+        'Copie o .env.local.example e preencha com a service-role key do Supabase.',
+    )
+  }
+
+  return chave
+}
