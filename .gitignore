@@ -39,3 +39,8 @@ Database password*.txt
 ~$*
 *.tmp
 .worktrees/
+
+# Cloudflare (OpenNext / wrangler)
+.open-next/
+.wrangler/
+.dev.vars
